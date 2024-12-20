@@ -1,20 +1,23 @@
 [package]
-name = "byteorder"
-version = "1.5.0"  #:version
-authors = ["Andrew Gallant <jamslam@gmail.com>"]
+name = "orderbyte"
+version = "0.0.1"
+# I am not including the original author here, as I can't assume that they want to
+# be associated with this fork. However, please reach out if you would want your
+# name to be included here, and I will happily do so.
+authors = ["Adrian Covaci <6562353+acovaci@users.noreply.github.com>"]
 description = "Library for reading/writing numbers in big-endian and little-endian."
-documentation = "https://docs.rs/byteorder"
-homepage = "https://github.com/BurntSushi/byteorder"
-repository = "https://github.com/BurntSushi/byteorder"
+documentation = "https://docs.rs/orderbyte"
+homepage = "https://github.com/acovaci/orderbyte"
+repository = "https://github.com/acovaci/orderbyte"
 readme = "README.md"
 categories = ["encoding", "parsing", "no-std"]
-keywords = ["byte", "endian", "big-endian", "little-endian", "binary"]
-license = "Unlicense OR MIT"
+keywords = ["byte", "endian", "big-endian", "little-endian", "byteorder"]
+license = "MIT"
 edition = "2021"
 rust-version = "1.60"
 
 [lib]
-name = "byteorder"
+name = "orderbyte"
 bench = false
 
 [dev-dependencies]
@@ -24,11 +27,6 @@ rand = "0.7"
 [features]
 default = ["std"]
 std = []
-
-# This feature is no longer used and is DEPRECATED. This crate now
-# automatically enables i128 support for Rust compilers that support it. The
-# feature will be removed if and when a new major version is released.
-i128 = []
 
 [profile.bench]
 opt-level = 3

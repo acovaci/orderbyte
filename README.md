@@ -1,42 +1,53 @@
 byteorder
 =========
-This crate provides convenience methods for encoding and decoding
-numbers in either big-endian or little-endian order.
+Fork of [byteorder](https://github.com/BurntSushi/byteorder) that enables runtime ByteOrder handling. 
 
-[![Build status](https://github.com/BurntSushi/byteorder/workflows/ci/badge.svg)](https://github.com/BurntSushi/byteorder/actions)
-[![crates.io](https://img.shields.io/crates/v/byteorder.svg)](https://crates.io/crates/byteorder)
+[![Build status](https://github.com/acovaci/orderbyte/workflows/ci/badge.svg)](https://github.com/acovaci/orderbyte/actions)
+[![crates.io](https://img.shields.io/crates/v/orderbyte.svg)](https://crates.io/crates/orderbyte)
 
-Dual-licensed under MIT or the [UNLICENSE](https://unlicense.org/).
+This crate is licensed under the [MIT license](LICENSE).
 
 
-### Documentation
+### Reasoning
 
-https://docs.rs/byteorder
+The original crate does not allow for runtime ByteOrder handling. There have
+been multiple requests for this feature, and I have myself reimplemented it
+multiple times. This fork aims to provide a single implementation that can be
+reused if needed.
 
+I won't encourage using this fork over the original crate, unless this feature
+is required. The original crate is well maintained and its author is very
+knoowledgeable in Rust, while I am a beginner. Feel free to submit any issues
+or PRs, if there are any bugs or use cases that are not covered, however, be
+aware that this fork will handle only issues related to runtime handling. If
+there are any other features you need, I would encourage you to fork this
+further, and maintain it yourself. I will gladly pass on the ownership if
+a better project comes along, or if the original crate implements this
+feature.
 
 ### Installation
 
 This crate works with Cargo and is on
-[crates.io](https://crates.io/crates/byteorder). Add it to your `Cargo.toml`
+[crates.io](https://crates.io/crates/orderbyte). Add it to your `Cargo.toml`
 like so:
 
 ```toml
 [dependencies]
-byteorder = "1"
+orderbyte = "0.0.1"
 ```
 
 If you want to augment existing `Read` and `Write` traits, then import the
 extension methods like so:
 
 ```rust
-use byteorder::{ReadBytesExt, WriteBytesExt, BigEndian, LittleEndian};
+use orderbyte::{ReadBytesExt, WriteBytesExt, BigEndian, LittleEndian};
 ```
 
 For example:
 
 ```rust
 use std::io::Cursor;
-use byteorder::{BigEndian, ReadBytesExt};
+use orderbyte::{BigEndian, ReadBytesExt};
 
 let mut rdr = Cursor::new(vec![2, 5, 3, 0]);
 // Note that we use type parameters to indicate which kind of byte order
@@ -52,26 +63,21 @@ in a `no_std` context, add the following to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-byteorder = { version = "1", default-features = false }
+orderbyte = { version = "0.0.1", default-features = false }
 ```
 
-
-### Minimum Rust version policy
-
-This crate's minimum supported `rustc` version is `1.60.0`.
-
-The current policy is that the minimum Rust version required to use this crate
-can be increased in minor version updates. For example, if `crate 1.0` requires
-Rust 1.20.0, then `crate 1.0.z` for all values of `z` will also require Rust
-1.20.0 or newer. However, `crate 1.y` for `y > 0` may require a newer minimum
-version of Rust.
-
-In general, this crate will be conservative with respect to the minimum
-supported version of Rust.
-
-
 ### Alternatives
+
+Of course, the original crate works perfectly well, and you should use it if
+you don't need runtime ByteOrder handling.
+
+Another alternative is the [endian](https://crates.io/endian) crate, which was
+designed with this feature in mind. 
 
 Note that as of Rust 1.32, the standard numeric types provide built-in methods
 like `to_le_bytes` and `from_le_bytes`, which support some of the same use
 cases.
+
+### Acknowledgements
+
+This crate was originally written by [BurntSushi](https://github.com/BurntSushi).

@@ -22,7 +22,7 @@ Read unsigned 16 bit big-endian integers from a [`Read`] type:
 
 ```rust
 use std::io::Cursor;
-use byteorder::{BigEndian, ReadBytesExt};
+use orderbyte::{BigEndian, ReadBytesExt};
 
 let mut rdr = Cursor::new(vec![2, 5, 3, 0]);
 // Note that we use type parameters to indicate which kind of byte order
@@ -34,7 +34,7 @@ assert_eq!(768, rdr.read_u16::<BigEndian>().unwrap());
 Write unsigned 16 bit little-endian integers to a [`Write`] type:
 
 ```rust
-use byteorder::{LittleEndian, WriteBytesExt};
+use orderbyte::{LittleEndian, WriteBytesExt};
 
 let mut wtr = vec![];
 wtr.write_u16::<LittleEndian>(517).unwrap();
@@ -43,9 +43,6 @@ assert_eq!(wtr, vec![5, 2, 0, 3]);
 ```
 
 # Optional Features
-
-This crate optionally provides support for 128 bit values (`i128` and `u128`)
-when built with the `i128` feature enabled.
 
 This crate can also be used without the standard library.
 
@@ -74,8 +71,7 @@ cases.
 #![cfg_attr(miri, allow(dead_code, unused_macros))]
 
 use core::{
-    convert::TryInto, fmt::Debug, hash::Hash, mem::align_of,
-    ptr::copy_nonoverlapping, slice,
+    convert::TryInto, fmt::Debug, hash::Hash, mem::align_of, ptr::copy_nonoverlapping, slice,
 };
 
 #[cfg(feature = "std")]
@@ -118,14 +114,6 @@ fn pack_size128(n: u128) -> usize {
     (16 - ((n | 1).leading_zeros() >> 3)) as usize
 }
 
-mod private {
-    /// Sealed stops crates other than byteorder from implementing any traits
-    /// that use it.
-    pub trait Sealed {}
-    impl Sealed for super::LittleEndian {}
-    impl Sealed for super::BigEndian {}
-}
-
 /// `ByteOrder` describes types that can serialize integers as bytes.
 ///
 /// Note that `Self` does not appear anywhere in this trait's definition!
@@ -142,7 +130,7 @@ mod private {
 /// Write and read `u32` numbers in little endian order:
 ///
 /// ```rust
-/// use byteorder::{ByteOrder, LittleEndian};
+/// use orderbyte::{ByteOrder, LittleEndian};
 ///
 /// let mut buf = [0; 4];
 /// LittleEndian::write_u32(&mut buf, 1_000_000);
@@ -152,7 +140,7 @@ mod private {
 /// Write and read `i16` numbers in big endian order:
 ///
 /// ```rust
-/// use byteorder::{ByteOrder, BigEndian};
+/// use orderbyte::{ByteOrder, BigEndian};
 ///
 /// let mut buf = [0; 2];
 /// BigEndian::write_i16(&mut buf, -5_000);
@@ -161,18 +149,29 @@ mod private {
 ///
 /// [`BigEndian`]: enum.BigEndian.html
 /// [`LittleEndian`]: enum.LittleEndian.html
+
 pub trait ByteOrder:
-    Clone
-    + Copy
-    + Debug
-    + Default
-    + Eq
-    + Hash
-    + Ord
-    + PartialEq
-    + PartialOrd
-    + private::Sealed
+    Clone + Copy + Debug + Default + Eq + Hash + Ord + PartialEq + PartialOrd
 {
+    /// This function can be used to conditionally run code based
+    /// on the endianness chosen at runtime.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use orderbyte::{ByteOrder, BigEndian, LittleEndian};
+    ///
+    /// let mut buf = [0; 4];
+    /// let endian = BigEndian::default();
+    /// match endian {
+    ///    BigEndian => BigEndian::write_u32(&mut buf, 1_000_000),
+    ///    LittleEndian => LittleEndian::write_u32(&mut buf, 1_000),
+    /// }
+    ///
+    /// assert_eq!(1_000_000, BigEndian::read_u32(&buf));
+    /// ```
+    fn endian() -> impl ByteOrder;
+
     /// Reads an unsigned 16 bit integer from `buf`.
     ///
     /// # Panics
@@ -191,7 +190,7 @@ pub trait ByteOrder:
     /// Write and read 24 bit `u32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 3];
     /// LittleEndian::write_u24(&mut buf, 1_000_000);
@@ -212,7 +211,7 @@ pub trait ByteOrder:
     /// Write and read `u32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 4];
     /// LittleEndian::write_u32(&mut buf, 1_000_000);
@@ -231,7 +230,7 @@ pub trait ByteOrder:
     /// Write and read 48 bit `u64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 6];
     /// LittleEndian::write_u48(&mut buf, 1_000_000_000_000);
@@ -252,7 +251,7 @@ pub trait ByteOrder:
     /// Write and read `u64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 8];
     /// LittleEndian::write_u64(&mut buf, 1_000_000);
@@ -271,7 +270,7 @@ pub trait ByteOrder:
     /// Write and read `u128` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 16];
     /// LittleEndian::write_u128(&mut buf, 1_000_000);
@@ -291,7 +290,7 @@ pub trait ByteOrder:
     /// Write and read an n-byte number in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 3];
     /// LittleEndian::write_uint(&mut buf, 1_000_000, 3);
@@ -311,7 +310,7 @@ pub trait ByteOrder:
     /// Write and read an n-byte number in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 3];
     /// LittleEndian::write_uint128(&mut buf, 1_000_000, 3);
@@ -330,7 +329,7 @@ pub trait ByteOrder:
     /// Write and read `u16` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 2];
     /// LittleEndian::write_u16(&mut buf, 1_000);
@@ -349,7 +348,7 @@ pub trait ByteOrder:
     /// Write and read 24 bit `u32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 3];
     /// LittleEndian::write_u24(&mut buf, 1_000_000);
@@ -370,7 +369,7 @@ pub trait ByteOrder:
     /// Write and read `u32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 4];
     /// LittleEndian::write_u32(&mut buf, 1_000_000);
@@ -389,7 +388,7 @@ pub trait ByteOrder:
     /// Write and read 48 bit `u64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 6];
     /// LittleEndian::write_u48(&mut buf, 1_000_000_000_000);
@@ -410,7 +409,7 @@ pub trait ByteOrder:
     /// Write and read `u64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 8];
     /// LittleEndian::write_u64(&mut buf, 1_000_000);
@@ -429,7 +428,7 @@ pub trait ByteOrder:
     /// Write and read `u128` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 16];
     /// LittleEndian::write_u128(&mut buf, 1_000_000);
@@ -449,7 +448,7 @@ pub trait ByteOrder:
     /// Write and read an n-byte number in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 3];
     /// LittleEndian::write_uint(&mut buf, 1_000_000, 3);
@@ -469,7 +468,7 @@ pub trait ByteOrder:
     /// Write and read an n-byte number in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 3];
     /// LittleEndian::write_uint128(&mut buf, 1_000_000, 3);
@@ -488,7 +487,7 @@ pub trait ByteOrder:
     /// Write and read `i16` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 2];
     /// LittleEndian::write_i16(&mut buf, -1_000);
@@ -510,7 +509,7 @@ pub trait ByteOrder:
     /// Write and read 24 bit `i32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 3];
     /// LittleEndian::write_i24(&mut buf, -1_000_000);
@@ -532,7 +531,7 @@ pub trait ByteOrder:
     /// Write and read `i32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 4];
     /// LittleEndian::write_i32(&mut buf, -1_000_000);
@@ -554,7 +553,7 @@ pub trait ByteOrder:
     /// Write and read 48 bit `i64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 6];
     /// LittleEndian::write_i48(&mut buf, -1_000_000_000_000);
@@ -576,7 +575,7 @@ pub trait ByteOrder:
     /// Write and read `i64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 8];
     /// LittleEndian::write_i64(&mut buf, -1_000_000_000);
@@ -598,7 +597,7 @@ pub trait ByteOrder:
     /// Write and read `i128` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 16];
     /// LittleEndian::write_i128(&mut buf, -1_000_000_000);
@@ -621,7 +620,7 @@ pub trait ByteOrder:
     /// Write and read n-length signed numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 3];
     /// LittleEndian::write_int(&mut buf, -1_000, 3);
@@ -644,7 +643,7 @@ pub trait ByteOrder:
     /// Write and read n-length signed numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 3];
     /// LittleEndian::write_int128(&mut buf, -1_000, 3);
@@ -666,7 +665,7 @@ pub trait ByteOrder:
     /// Write and read `f32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let e = 2.71828;
     /// let mut buf = [0; 4];
@@ -689,7 +688,7 @@ pub trait ByteOrder:
     /// Write and read `f64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let phi = 1.6180339887;
     /// let mut buf = [0; 8];
@@ -712,7 +711,7 @@ pub trait ByteOrder:
     /// Write and read `i16` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 2];
     /// LittleEndian::write_i16(&mut buf, -1_000);
@@ -734,7 +733,7 @@ pub trait ByteOrder:
     /// Write and read 24 bit `i32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 3];
     /// LittleEndian::write_i24(&mut buf, -1_000_000);
@@ -756,7 +755,7 @@ pub trait ByteOrder:
     /// Write and read `i32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 4];
     /// LittleEndian::write_i32(&mut buf, -1_000_000);
@@ -778,7 +777,7 @@ pub trait ByteOrder:
     /// Write and read 48 bit `i64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 6];
     /// LittleEndian::write_i48(&mut buf, -1_000_000_000_000);
@@ -800,7 +799,7 @@ pub trait ByteOrder:
     /// Write and read `i64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 8];
     /// LittleEndian::write_i64(&mut buf, -1_000_000_000);
@@ -822,7 +821,7 @@ pub trait ByteOrder:
     /// Write and read n-byte `i128` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 16];
     /// LittleEndian::write_i128(&mut buf, -1_000_000_000);
@@ -845,7 +844,7 @@ pub trait ByteOrder:
     /// Write and read an n-byte number in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 3];
     /// LittleEndian::write_int(&mut buf, -1_000, 3);
@@ -868,7 +867,7 @@ pub trait ByteOrder:
     /// Write and read n-length signed numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut buf = [0; 3];
     /// LittleEndian::write_int128(&mut buf, -1_000, 3);
@@ -890,7 +889,7 @@ pub trait ByteOrder:
     /// Write and read `f32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let e = 2.71828;
     /// let mut buf = [0; 4];
@@ -913,7 +912,7 @@ pub trait ByteOrder:
     /// Write and read `f64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let phi = 1.6180339887;
     /// let mut buf = [0; 8];
@@ -936,7 +935,7 @@ pub trait ByteOrder:
     /// Write and read `u16` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 8];
     /// let numbers_given = [1, 2, 0xf00f, 0xffee];
@@ -959,7 +958,7 @@ pub trait ByteOrder:
     /// Write and read `u32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 16];
     /// let numbers_given = [1, 2, 0xf00f, 0xffee];
@@ -982,7 +981,7 @@ pub trait ByteOrder:
     /// Write and read `u64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 32];
     /// let numbers_given = [1, 2, 0xf00f, 0xffee];
@@ -1005,7 +1004,7 @@ pub trait ByteOrder:
     /// Write and read `u128` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 64];
     /// let numbers_given = [1, 2, 0xf00f, 0xffee];
@@ -1028,7 +1027,7 @@ pub trait ByteOrder:
     /// Write and read `i16` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 8];
     /// let numbers_given = [1, 2, 0x0f, 0xee];
@@ -1040,9 +1039,7 @@ pub trait ByteOrder:
     /// ```
     #[inline]
     fn read_i16_into(src: &[u8], dst: &mut [i16]) {
-        let dst = unsafe {
-            slice::from_raw_parts_mut(dst.as_mut_ptr() as *mut u16, dst.len())
-        };
+        let dst = unsafe { slice::from_raw_parts_mut(dst.as_mut_ptr() as *mut u16, dst.len()) };
         Self::read_u16_into(src, dst)
     }
 
@@ -1057,7 +1054,7 @@ pub trait ByteOrder:
     /// Write and read `i32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 16];
     /// let numbers_given = [1, 2, 0xf00f, 0xffee];
@@ -1069,9 +1066,7 @@ pub trait ByteOrder:
     /// ```
     #[inline]
     fn read_i32_into(src: &[u8], dst: &mut [i32]) {
-        let dst = unsafe {
-            slice::from_raw_parts_mut(dst.as_mut_ptr() as *mut u32, dst.len())
-        };
+        let dst = unsafe { slice::from_raw_parts_mut(dst.as_mut_ptr() as *mut u32, dst.len()) };
         Self::read_u32_into(src, dst);
     }
 
@@ -1086,7 +1081,7 @@ pub trait ByteOrder:
     /// Write and read `i64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 32];
     /// let numbers_given = [1, 2, 0xf00f, 0xffee];
@@ -1098,9 +1093,7 @@ pub trait ByteOrder:
     /// ```
     #[inline]
     fn read_i64_into(src: &[u8], dst: &mut [i64]) {
-        let dst = unsafe {
-            slice::from_raw_parts_mut(dst.as_mut_ptr() as *mut u64, dst.len())
-        };
+        let dst = unsafe { slice::from_raw_parts_mut(dst.as_mut_ptr() as *mut u64, dst.len()) };
         Self::read_u64_into(src, dst);
     }
 
@@ -1115,7 +1108,7 @@ pub trait ByteOrder:
     /// Write and read `i128` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 64];
     /// let numbers_given = [1, 2, 0xf00f, 0xffee];
@@ -1127,9 +1120,7 @@ pub trait ByteOrder:
     /// ```
     #[inline]
     fn read_i128_into(src: &[u8], dst: &mut [i128]) {
-        let dst = unsafe {
-            slice::from_raw_parts_mut(dst.as_mut_ptr() as *mut u128, dst.len())
-        };
+        let dst = unsafe { slice::from_raw_parts_mut(dst.as_mut_ptr() as *mut u128, dst.len()) };
         Self::read_u128_into(src, dst);
     }
 
@@ -1145,7 +1136,7 @@ pub trait ByteOrder:
     /// Write and read `f32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 16];
     /// let numbers_given = [1.0, 2.0, 31.312e31, -11.32e19];
@@ -1179,7 +1170,7 @@ pub trait ByteOrder:
     /// Write and read `f32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 16];
     /// let numbers_given = [1.0, 2.0, 31.312e31, -11.32e19];
@@ -1207,7 +1198,7 @@ pub trait ByteOrder:
     /// Write and read `f64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 32];
     /// let numbers_given = [1.0, 2.0, 31.312e211, -11.32e91];
@@ -1242,7 +1233,7 @@ pub trait ByteOrder:
     /// Write and read `f64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 32];
     /// let numbers_given = [1.0, 2.0, 31.312e211, -11.32e91];
@@ -1269,7 +1260,7 @@ pub trait ByteOrder:
     /// Write and read `u16` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 8];
     /// let numbers_given = [1, 2, 0xf00f, 0xffee];
@@ -1292,7 +1283,7 @@ pub trait ByteOrder:
     /// Write and read `u32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 16];
     /// let numbers_given = [1, 2, 0xf00f, 0xffee];
@@ -1315,7 +1306,7 @@ pub trait ByteOrder:
     /// Write and read `u64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 32];
     /// let numbers_given = [1, 2, 0xf00f, 0xffee];
@@ -1338,7 +1329,7 @@ pub trait ByteOrder:
     /// Write and read `u128` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 64];
     /// let numbers_given = [1, 2, 0xf00f, 0xffee];
@@ -1367,7 +1358,7 @@ pub trait ByteOrder:
     /// Write and read `i8` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian, ReadBytesExt};
+    /// use orderbyte::{ByteOrder, LittleEndian, ReadBytesExt};
     ///
     /// let mut bytes = [0; 4];
     /// let numbers_given = [1, 2, 0xf, 0xe];
@@ -1378,9 +1369,7 @@ pub trait ByteOrder:
     /// assert_eq!(numbers_given, numbers_got);
     /// ```
     fn write_i8_into(src: &[i8], dst: &mut [u8]) {
-        let src = unsafe {
-            slice::from_raw_parts(src.as_ptr() as *const u8, src.len())
-        };
+        let src = unsafe { slice::from_raw_parts(src.as_ptr() as *const u8, src.len()) };
         dst.copy_from_slice(src);
     }
 
@@ -1395,7 +1384,7 @@ pub trait ByteOrder:
     /// Write and read `i16` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 8];
     /// let numbers_given = [1, 2, 0x0f, 0xee];
@@ -1406,9 +1395,7 @@ pub trait ByteOrder:
     /// assert_eq!(numbers_given, numbers_got);
     /// ```
     fn write_i16_into(src: &[i16], dst: &mut [u8]) {
-        let src = unsafe {
-            slice::from_raw_parts(src.as_ptr() as *const u16, src.len())
-        };
+        let src = unsafe { slice::from_raw_parts(src.as_ptr() as *const u16, src.len()) };
         Self::write_u16_into(src, dst);
     }
 
@@ -1423,7 +1410,7 @@ pub trait ByteOrder:
     /// Write and read `i32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 16];
     /// let numbers_given = [1, 2, 0xf00f, 0xffee];
@@ -1434,9 +1421,7 @@ pub trait ByteOrder:
     /// assert_eq!(numbers_given, numbers_got);
     /// ```
     fn write_i32_into(src: &[i32], dst: &mut [u8]) {
-        let src = unsafe {
-            slice::from_raw_parts(src.as_ptr() as *const u32, src.len())
-        };
+        let src = unsafe { slice::from_raw_parts(src.as_ptr() as *const u32, src.len()) };
         Self::write_u32_into(src, dst);
     }
 
@@ -1451,7 +1436,7 @@ pub trait ByteOrder:
     /// Write and read `i64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 32];
     /// let numbers_given = [1, 2, 0xf00f, 0xffee];
@@ -1462,9 +1447,7 @@ pub trait ByteOrder:
     /// assert_eq!(numbers_given, numbers_got);
     /// ```
     fn write_i64_into(src: &[i64], dst: &mut [u8]) {
-        let src = unsafe {
-            slice::from_raw_parts(src.as_ptr() as *const u64, src.len())
-        };
+        let src = unsafe { slice::from_raw_parts(src.as_ptr() as *const u64, src.len()) };
         Self::write_u64_into(src, dst);
     }
 
@@ -1479,7 +1462,7 @@ pub trait ByteOrder:
     /// Write and read `i128` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 64];
     /// let numbers_given = [1, 2, 0xf00f, 0xffee];
@@ -1490,9 +1473,7 @@ pub trait ByteOrder:
     /// assert_eq!(numbers_given, numbers_got);
     /// ```
     fn write_i128_into(src: &[i128], dst: &mut [u8]) {
-        let src = unsafe {
-            slice::from_raw_parts(src.as_ptr() as *const u128, src.len())
-        };
+        let src = unsafe { slice::from_raw_parts(src.as_ptr() as *const u128, src.len()) };
         Self::write_u128_into(src, dst);
     }
 
@@ -1508,7 +1489,7 @@ pub trait ByteOrder:
     /// Write and read `f32` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 16];
     /// let numbers_given = [1.0, 2.0, 31.312e31, -11.32e19];
@@ -1519,9 +1500,7 @@ pub trait ByteOrder:
     /// assert_eq!(numbers_given, numbers_got);
     /// ```
     fn write_f32_into(src: &[f32], dst: &mut [u8]) {
-        let src = unsafe {
-            slice::from_raw_parts(src.as_ptr() as *const u32, src.len())
-        };
+        let src = unsafe { slice::from_raw_parts(src.as_ptr() as *const u32, src.len()) };
         Self::write_u32_into(src, dst);
     }
 
@@ -1537,7 +1516,7 @@ pub trait ByteOrder:
     /// Write and read `f64` numbers in little endian order:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, LittleEndian};
+    /// use orderbyte::{ByteOrder, LittleEndian};
     ///
     /// let mut bytes = [0; 32];
     /// let numbers_given = [1.0, 2.0, 31.312e211, -11.32e91];
@@ -1548,9 +1527,7 @@ pub trait ByteOrder:
     /// assert_eq!(numbers_given, numbers_got);
     /// ```
     fn write_f64_into(src: &[f64], dst: &mut [u8]) {
-        let src = unsafe {
-            slice::from_raw_parts(src.as_ptr() as *const u64, src.len())
-        };
+        let src = unsafe { slice::from_raw_parts(src.as_ptr() as *const u64, src.len()) };
         Self::write_u64_into(src, dst);
     }
 
@@ -1565,7 +1542,7 @@ pub trait ByteOrder:
     /// Convert the host platform's endianness to big-endian:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, BigEndian};
+    /// use orderbyte::{ByteOrder, BigEndian};
     ///
     /// let mut numbers = [5, 65000];
     /// BigEndian::from_slice_u16(&mut numbers);
@@ -1584,7 +1561,7 @@ pub trait ByteOrder:
     /// Convert the host platform's endianness to big-endian:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, BigEndian};
+    /// use orderbyte::{ByteOrder, BigEndian};
     ///
     /// let mut numbers = [5, 65000];
     /// BigEndian::from_slice_u32(&mut numbers);
@@ -1603,7 +1580,7 @@ pub trait ByteOrder:
     /// Convert the host platform's endianness to big-endian:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, BigEndian};
+    /// use orderbyte::{ByteOrder, BigEndian};
     ///
     /// let mut numbers = [5, 65000];
     /// BigEndian::from_slice_u64(&mut numbers);
@@ -1622,7 +1599,7 @@ pub trait ByteOrder:
     /// Convert the host platform's endianness to big-endian:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, BigEndian};
+    /// use orderbyte::{ByteOrder, BigEndian};
     ///
     /// let mut numbers = [5, 65000];
     /// BigEndian::from_slice_u128(&mut numbers);
@@ -1641,7 +1618,7 @@ pub trait ByteOrder:
     /// Convert the host platform's endianness to big-endian:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, BigEndian};
+    /// use orderbyte::{ByteOrder, BigEndian};
     ///
     /// let mut numbers = [5, 6500];
     /// BigEndian::from_slice_i16(&mut numbers);
@@ -1649,9 +1626,7 @@ pub trait ByteOrder:
     /// ```
     #[inline]
     fn from_slice_i16(src: &mut [i16]) {
-        let src = unsafe {
-            slice::from_raw_parts_mut(src.as_mut_ptr() as *mut u16, src.len())
-        };
+        let src = unsafe { slice::from_raw_parts_mut(src.as_mut_ptr() as *mut u16, src.len()) };
         Self::from_slice_u16(src);
     }
 
@@ -1666,7 +1641,7 @@ pub trait ByteOrder:
     /// Convert the host platform's endianness to big-endian:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, BigEndian};
+    /// use orderbyte::{ByteOrder, BigEndian};
     ///
     /// let mut numbers = [5, 65000];
     /// BigEndian::from_slice_i32(&mut numbers);
@@ -1674,9 +1649,7 @@ pub trait ByteOrder:
     /// ```
     #[inline]
     fn from_slice_i32(src: &mut [i32]) {
-        let src = unsafe {
-            slice::from_raw_parts_mut(src.as_mut_ptr() as *mut u32, src.len())
-        };
+        let src = unsafe { slice::from_raw_parts_mut(src.as_mut_ptr() as *mut u32, src.len()) };
         Self::from_slice_u32(src);
     }
 
@@ -1691,7 +1664,7 @@ pub trait ByteOrder:
     /// Convert the host platform's endianness to big-endian:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, BigEndian};
+    /// use orderbyte::{ByteOrder, BigEndian};
     ///
     /// let mut numbers = [5, 65000];
     /// BigEndian::from_slice_i64(&mut numbers);
@@ -1699,9 +1672,7 @@ pub trait ByteOrder:
     /// ```
     #[inline]
     fn from_slice_i64(src: &mut [i64]) {
-        let src = unsafe {
-            slice::from_raw_parts_mut(src.as_mut_ptr() as *mut u64, src.len())
-        };
+        let src = unsafe { slice::from_raw_parts_mut(src.as_mut_ptr() as *mut u64, src.len()) };
         Self::from_slice_u64(src);
     }
 
@@ -1716,7 +1687,7 @@ pub trait ByteOrder:
     /// Convert the host platform's endianness to big-endian:
     ///
     /// ```rust
-    /// use byteorder::{ByteOrder, BigEndian};
+    /// use orderbyte::{ByteOrder, BigEndian};
     ///
     /// let mut numbers = [5, 65000];
     /// BigEndian::from_slice_i128(&mut numbers);
@@ -1724,9 +1695,7 @@ pub trait ByteOrder:
     /// ```
     #[inline]
     fn from_slice_i128(src: &mut [i128]) {
-        let src = unsafe {
-            slice::from_raw_parts_mut(src.as_mut_ptr() as *mut u128, src.len())
-        };
+        let src = unsafe { slice::from_raw_parts_mut(src.as_mut_ptr() as *mut u128, src.len()) };
         Self::from_slice_u128(src);
     }
 
@@ -1755,7 +1724,7 @@ pub trait ByteOrder:
 /// Write and read `u32` numbers in big endian order:
 ///
 /// ```rust
-/// use byteorder::{ByteOrder, BigEndian};
+/// use orderbyte::{ByteOrder, BigEndian};
 ///
 /// let mut buf = [0; 4];
 /// BigEndian::write_u32(&mut buf, 1_000_000);
@@ -1785,7 +1754,7 @@ pub type BE = BigEndian;
 /// Write and read `u32` numbers in little endian order:
 ///
 /// ```rust
-/// use byteorder::{ByteOrder, LittleEndian};
+/// use orderbyte::{ByteOrder, LittleEndian};
 ///
 /// let mut buf = [0; 4];
 /// LittleEndian::write_u32(&mut buf, 1_000_000);
@@ -1821,7 +1790,7 @@ pub type LE = LittleEndian;
 /// Write and read `i16` numbers in big endian order:
 ///
 /// ```rust
-/// use byteorder::{ByteOrder, NetworkEndian, BigEndian};
+/// use orderbyte::{ByteOrder, NetworkEndian, BigEndian};
 ///
 /// let mut buf = [0; 2];
 /// BigEndian::write_i16(&mut buf, -5_000);
@@ -1888,6 +1857,11 @@ macro_rules! write_slice {
 }
 
 impl ByteOrder for BigEndian {
+    #[inline]
+    fn endian() -> impl ByteOrder {
+        BigEndian::default()
+    }
+
     #[inline]
     fn read_u16(buf: &[u8]) -> u16 {
         u16::from_be_bytes(buf[..2].try_into().unwrap())
@@ -2070,6 +2044,11 @@ impl ByteOrder for BigEndian {
 }
 
 impl ByteOrder for LittleEndian {
+    #[inline]
+    fn endian() -> impl ByteOrder {
+        LittleEndian::default()
+    }
+
     #[inline]
     fn read_u16(buf: &[u8]) -> u16 {
         u16::from_le_bytes(buf[..2].try_into().unwrap())
@@ -2281,8 +2260,7 @@ mod test {
     impl Arbitrary for Wi128<u128> {
         fn arbitrary<G: Gen>(gen: &mut G) -> Wi128<u128> {
             let max = calc_max!(::core::u128::MAX, gen.size(), 16);
-            let output = (gen.gen::<u64>() as u128)
-                | ((gen.gen::<u64>() as u128) << 64);
+            let output = (gen.gen::<u64>() as u128) | ((gen.gen::<u64>() as u128) << 64);
             Wi128(output & (max - 1))
         }
     }
@@ -2290,8 +2268,7 @@ mod test {
     impl Arbitrary for Wi128<i128> {
         fn arbitrary<G: Gen>(gen: &mut G) -> Wi128<i128> {
             let max = calc_max!(::core::i128::MAX, gen.size(), 16);
-            let output = (gen.gen::<i64>() as i128)
-                | ((gen.gen::<i64>() as i128) << 64);
+            let output = (gen.gen::<i64>() as i128) | ((gen.gen::<i64>() as i128) << 64);
             Wi128(output & (max - 1))
         }
     }
@@ -2311,9 +2288,7 @@ mod test {
             mod $name {
                 #[allow(unused_imports)]
                 use super::{qc_sized, Wi128};
-                use crate::{
-                    BigEndian, ByteOrder, LittleEndian, NativeEndian,
-                };
+                use crate::{BigEndian, ByteOrder, LittleEndian, NativeEndian};
 
                 #[test]
                 fn big_endian() {
@@ -2352,9 +2327,7 @@ mod test {
             mod $name {
                 #[allow(unused_imports)]
                 use super::{qc_sized, Wi128};
-                use crate::{
-                    BigEndian, ByteOrder, LittleEndian, NativeEndian,
-                };
+                use crate::{BigEndian, ByteOrder, LittleEndian, NativeEndian};
                 use core::mem::size_of;
 
                 #[test]
@@ -2393,20 +2366,8 @@ mod test {
         };
     }
 
-    qc_byte_order!(
-        prop_u16,
-        u16,
-        ::core::u16::MAX as u64,
-        read_u16,
-        write_u16
-    );
-    qc_byte_order!(
-        prop_i16,
-        i16,
-        ::core::i16::MAX as u64,
-        read_i16,
-        write_i16
-    );
+    qc_byte_order!(prop_u16, u16, ::core::u16::MAX as u64, read_u16, write_u16);
+    qc_byte_order!(prop_i16, i16, ::core::i16::MAX as u64, read_i16, write_i16);
     qc_byte_order!(
         prop_u24,
         u32,
@@ -2421,20 +2382,8 @@ mod test {
         read_i24,
         write_i24
     );
-    qc_byte_order!(
-        prop_u32,
-        u32,
-        ::core::u32::MAX as u64,
-        read_u32,
-        write_u32
-    );
-    qc_byte_order!(
-        prop_i32,
-        i32,
-        ::core::i32::MAX as u64,
-        read_i32,
-        write_i32
-    );
+    qc_byte_order!(prop_u32, u32, ::core::u32::MAX as u64, read_u32, write_u32);
+    qc_byte_order!(prop_i32, i32, ::core::i32::MAX as u64, read_i32, write_i32);
     qc_byte_order!(
         prop_u48,
         u64,
@@ -2449,34 +2398,10 @@ mod test {
         read_i48,
         write_i48
     );
-    qc_byte_order!(
-        prop_u64,
-        u64,
-        ::core::u64::MAX as u64,
-        read_u64,
-        write_u64
-    );
-    qc_byte_order!(
-        prop_i64,
-        i64,
-        ::core::i64::MAX as u64,
-        read_i64,
-        write_i64
-    );
-    qc_byte_order!(
-        prop_f32,
-        f32,
-        ::core::u64::MAX as u64,
-        read_f32,
-        write_f32
-    );
-    qc_byte_order!(
-        prop_f64,
-        f64,
-        ::core::i64::MAX as u64,
-        read_f64,
-        write_f64
-    );
+    qc_byte_order!(prop_u64, u64, ::core::u64::MAX as u64, read_u64, write_u64);
+    qc_byte_order!(prop_i64, i64, ::core::i64::MAX as u64, read_i64, write_i64);
+    qc_byte_order!(prop_f32, f32, ::core::u64::MAX as u64, read_f32, write_f32);
+    qc_byte_order!(prop_f64, f64, ::core::i64::MAX as u64, read_f64, write_f64);
 
     qc_byte_order!(prop_u128, Wi128<u128>, 16 + 1, read_u128, write_u128);
     qc_byte_order!(prop_i128, Wi128<i128>, 16 + 1, read_i128, write_i128);
@@ -2740,78 +2665,15 @@ mod test {
         write_int
     );
 
-    qc_byte_order!(
-        prop_int128_1,
-        Wi128<i128>,
-        1,
-        1,
-        read_int128,
-        write_int128
-    );
-    qc_byte_order!(
-        prop_int128_2,
-        Wi128<i128>,
-        2,
-        2,
-        read_int128,
-        write_int128
-    );
-    qc_byte_order!(
-        prop_int128_3,
-        Wi128<i128>,
-        3,
-        3,
-        read_int128,
-        write_int128
-    );
-    qc_byte_order!(
-        prop_int128_4,
-        Wi128<i128>,
-        4,
-        4,
-        read_int128,
-        write_int128
-    );
-    qc_byte_order!(
-        prop_int128_5,
-        Wi128<i128>,
-        5,
-        5,
-        read_int128,
-        write_int128
-    );
-    qc_byte_order!(
-        prop_int128_6,
-        Wi128<i128>,
-        6,
-        6,
-        read_int128,
-        write_int128
-    );
-    qc_byte_order!(
-        prop_int128_7,
-        Wi128<i128>,
-        7,
-        7,
-        read_int128,
-        write_int128
-    );
-    qc_byte_order!(
-        prop_int128_8,
-        Wi128<i128>,
-        8,
-        8,
-        read_int128,
-        write_int128
-    );
-    qc_byte_order!(
-        prop_int128_9,
-        Wi128<i128>,
-        9,
-        9,
-        read_int128,
-        write_int128
-    );
+    qc_byte_order!(prop_int128_1, Wi128<i128>, 1, 1, read_int128, write_int128);
+    qc_byte_order!(prop_int128_2, Wi128<i128>, 2, 2, read_int128, write_int128);
+    qc_byte_order!(prop_int128_3, Wi128<i128>, 3, 3, read_int128, write_int128);
+    qc_byte_order!(prop_int128_4, Wi128<i128>, 4, 4, read_int128, write_int128);
+    qc_byte_order!(prop_int128_5, Wi128<i128>, 5, 5, read_int128, write_int128);
+    qc_byte_order!(prop_int128_6, Wi128<i128>, 6, 6, read_int128, write_int128);
+    qc_byte_order!(prop_int128_7, Wi128<i128>, 7, 7, read_int128, write_int128);
+    qc_byte_order!(prop_int128_8, Wi128<i128>, 8, 8, read_int128, write_int128);
+    qc_byte_order!(prop_int128_9, Wi128<i128>, 9, 9, read_int128, write_int128);
     qc_byte_order!(
         prop_int128_10,
         Wi128<i128>,
@@ -2878,9 +2740,7 @@ mod test {
         ($name:ident, $maximally_small:expr, $zero:expr,
          $read:ident, $write:ident) => {
             mod $name {
-                use crate::{
-                    BigEndian, ByteOrder, LittleEndian, NativeEndian,
-                };
+                use crate::{BigEndian, ByteOrder, LittleEndian, NativeEndian};
 
                 #[test]
                 #[should_panic]
@@ -2927,9 +2787,7 @@ mod test {
         };
         ($name:ident, $maximally_small:expr, $read:ident) => {
             mod $name {
-                use crate::{
-                    BigEndian, ByteOrder, LittleEndian, NativeEndian,
-                };
+                use crate::{BigEndian, ByteOrder, LittleEndian, NativeEndian};
 
                 #[test]
                 #[should_panic]
@@ -3019,9 +2877,7 @@ mod test {
         ($name:ident, $read:ident, $write:ident,
          $num_bytes:expr, $numbers:expr) => {
             mod $name {
-                use crate::{
-                    BigEndian, ByteOrder, LittleEndian, NativeEndian,
-                };
+                use crate::{BigEndian, ByteOrder, LittleEndian, NativeEndian};
 
                 #[test]
                 #[should_panic]
@@ -3269,10 +3125,7 @@ mod stdtests {
             mod $name {
                 #[allow(unused_imports)]
                 use crate::test::{qc_sized, Wi128};
-                use crate::{
-                    BigEndian, LittleEndian, NativeEndian, ReadBytesExt,
-                    WriteBytesExt,
-                };
+                use crate::{BigEndian, LittleEndian, NativeEndian, ReadBytesExt, WriteBytesExt};
                 use std::io::Cursor;
 
                 #[test]
@@ -3320,10 +3173,7 @@ mod stdtests {
             mod $name {
                 #[allow(unused_imports)]
                 use crate::test::{qc_sized, Wi128};
-                use crate::{
-                    BigEndian, LittleEndian, NativeEndian, ReadBytesExt,
-                    WriteBytesExt,
-                };
+                use crate::{BigEndian, LittleEndian, NativeEndian, ReadBytesExt, WriteBytesExt};
                 use std::io::Cursor;
 
                 #[test]
@@ -3818,17 +3668,14 @@ mod stdtests {
                 use super::qc_unsized;
                 #[allow(unused_imports)]
                 use crate::test::Wi128;
-                use crate::{
-                    BigEndian, ByteOrder, LittleEndian, NativeEndian,
-                };
+                use crate::{BigEndian, ByteOrder, LittleEndian, NativeEndian};
                 use core::mem::size_of;
 
                 #[test]
                 fn big_endian() {
                     #[allow(unused_unsafe)]
                     fn prop(numbers: Vec<$ty_int>) -> bool {
-                        let numbers: Vec<_> =
-                            numbers.into_iter().map(|x| x.clone()).collect();
+                        let numbers: Vec<_> = numbers.into_iter().map(|x| x.clone()).collect();
                         let num_bytes = size_of::<$ty_int>() * numbers.len();
                         let mut bytes = vec![0; num_bytes];
 
@@ -3848,8 +3695,7 @@ mod stdtests {
                 fn little_endian() {
                     #[allow(unused_unsafe)]
                     fn prop(numbers: Vec<$ty_int>) -> bool {
-                        let numbers: Vec<_> =
-                            numbers.into_iter().map(|x| x.clone()).collect();
+                        let numbers: Vec<_> = numbers.into_iter().map(|x| x.clone()).collect();
                         let num_bytes = size_of::<$ty_int>() * numbers.len();
                         let mut bytes = vec![0; num_bytes];
 
@@ -3869,8 +3715,7 @@ mod stdtests {
                 fn native_endian() {
                     #[allow(unused_unsafe)]
                     fn prop(numbers: Vec<$ty_int>) -> bool {
-                        let numbers: Vec<_> =
-                            numbers.into_iter().map(|x| x.clone()).collect();
+                        let numbers: Vec<_> = numbers.into_iter().map(|x| x.clone()).collect();
                         let num_bytes = size_of::<$ty_int>() * numbers.len();
                         let mut bytes = vec![0; num_bytes];
 
@@ -3912,4 +3757,19 @@ mod stdtests {
 
     qc_slice!(prop_slice_f32, f32, read_f32_into, write_f32_into, 0.0);
     qc_slice!(prop_slice_f64, f64, read_f64_into, write_f64_into, 0.0);
+
+    #[test]
+    fn test_endian() {
+        use crate::{BigEndian, ByteOrder, LittleEndian, NativeEndian};
+
+        fn op<T: ByteOrder>(n: u64) -> u64 {
+            match T::endian() {
+                BigEndian::default() => n + 10,
+                LittleEndian::default() => n * 10,
+            }
+        }
+
+        assert_eq!(op::<BigEndian>(1), 11);
+        assert_eq!(op::<LittleEndian>(1), 10);
+    }
 }
