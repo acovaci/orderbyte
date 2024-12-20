@@ -1,6 +1,6 @@
 [package]
 name = "orderbyte"
-version = "0.0.1"
+version = "0.0.2"
 # I am not including the original author here, as I can't assume that they want to
 # be associated with this fork. However, please reach out if you would want your
 # name to be included here, and I will happily do so.
@@ -14,7 +14,7 @@ categories = ["encoding", "parsing", "no-std"]
 keywords = ["byte", "endian", "big-endian", "little-endian", "byteorder"]
 license = "MIT"
 edition = "2021"
-rust-version = "1.60"
+rust-version = "1.83"
 
 [lib]
 name = "orderbyte"
