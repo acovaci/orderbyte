@@ -1,6 +1,7 @@
-byteorder
+orderbyte
 =========
-Fork of [byteorder](https://github.com/BurntSushi/byteorder) that enables runtime ByteOrder handling. 
+Fork of [byteorder](https://github.com/BurntSushi/byteorder) that enables
+runtime ByteOrder handling. 
 
 [![Build status](https://github.com/acovaci/orderbyte/workflows/ci/badge.svg)](https://github.com/acovaci/orderbyte/actions)
 [![crates.io](https://img.shields.io/crates/v/orderbyte.svg)](https://crates.io/crates/orderbyte)
