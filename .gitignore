@@ -4,3 +4,4 @@ tags
 build
 target
 Cargo.lock
+.direnv
