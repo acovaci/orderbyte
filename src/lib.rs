@@ -163,14 +163,21 @@ pub trait ByteOrder:
     ///
     /// let mut buf = [0; 4];
     /// let endian = BigEndian::default();
-    /// match endian {
-    ///    BigEndian => BigEndian::write_u32(&mut buf, 1_000_000),
-    ///    LittleEndian => LittleEndian::write_u32(&mut buf, 1_000),
+    /// match endian.is_big_endian() {
+    ///    true => BigEndian::write_u32(&mut buf, 1_000_000),
+    ///    false => LittleEndian::write_u32(&mut buf, 1_000),
     /// }
     ///
     /// assert_eq!(1_000_000, BigEndian::read_u32(&buf));
     /// ```
-    fn endian() -> impl ByteOrder;
+    fn is_big_endian() -> bool;
+
+    /// This function can be used to conditionally run code based
+    /// on the endianness chosen at runtime. See [`is_big_endian`]
+    /// for an example.
+    fn is_little_endian() -> bool {
+        !Self::is_big_endian()
+    }
 
     /// Reads an unsigned 16 bit integer from `buf`.
     ///
@@ -1858,8 +1865,8 @@ macro_rules! write_slice {
 
 impl ByteOrder for BigEndian {
     #[inline]
-    fn endian() -> impl ByteOrder {
-        BigEndian::default()
+    fn is_big_endian() -> bool {
+        true
     }
 
     #[inline]
@@ -2045,8 +2052,8 @@ impl ByteOrder for BigEndian {
 
 impl ByteOrder for LittleEndian {
     #[inline]
-    fn endian() -> impl ByteOrder {
-        LittleEndian::default()
+    fn is_big_endian() -> bool {
+        false
     }
 
     #[inline]
@@ -3760,12 +3767,13 @@ mod stdtests {
 
     #[test]
     fn test_endian() {
-        use crate::{BigEndian, ByteOrder, LittleEndian, NativeEndian};
+        use crate::{BigEndian, ByteOrder, LittleEndian};
 
         fn op<T: ByteOrder>(n: u64) -> u64 {
-            match T::endian() {
-                BigEndian::default() => n + 10,
-                LittleEndian::default() => n * 10,
+            if T::is_big_endian() {
+                n + 10
+            } else {
+                n * 10
             }
         }
 
